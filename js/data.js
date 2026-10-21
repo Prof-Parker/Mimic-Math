@@ -16,7 +16,7 @@
     ins100: { id: 'ins100', label: '100 unit', sub: 'Insulin (1 mL)',   group: 'insulin', ticks: 50,  minor: 0.02, labelStep: 5,  midStep: 5, scale: 100, unit: 'units', attached: true,  h: 36, needle: { len: 0.5,  gauge: 30 } },
     tb1:    { id: 'tb1',    label: '1 mL',  sub: 'TB syringe',       group: 'other',   ticks: 100, minor: 0.01, labelStep: 10, midStep: 5, scale: 1,   unit: 'mL',    attached: true,  h: 38, needle: { len: 0.625, gauge: 25 } }
   };
-  MM.SYRINGE_ORDER = ['luer1', 'luer3', 'luer5', 'luer10', 'ins30', 'ins50', 'ins100', 'tb1'];
+  MM.SYRINGE_ORDER = ['ins30', 'ins50', 'ins100', 'tb1', 'luer1', 'luer3', 'luer5', 'luer10'];
   MM.SYRINGE_GROUPS = [
     { id: 'luer', title: 'Luer-Lock syringes' },
     { id: 'insulin', title: 'Insulin syringes (U-100)' },

@@ -23,6 +23,7 @@ MM.bank.forEach((q) => {
     const needle = s.attached ? null : a.needles[0];
     const g = MM.grade(q, { calc: a.volume, syringe: a.best, needle, tick: a.tick });
     if (!g.correct) fail(q, 'perfect answer graded wrong: ' + JSON.stringify(g.parts.filter((p) => !p.ok)));
+    if (q.category === 'insulin' && g.parts.some((p) => p.key === 'calc')) fail(q, 'insulin should not have a volume calculation');
     // the classic errors must be caught
     if (q.category === 'inj') {
       const wrong = MM.grade(q, { calc: q.order.dose.v, syringe: 'ins30', needle: null, tick: 1 });

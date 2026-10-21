@@ -192,7 +192,7 @@
     const isIns = q.category === 'insulin';
     const conc = q.product.conc, concPerMl = conc.amt / conc.vol;
 
-    // 1. calculation
+    // 1. calculation (insulin is ordered and measured in units, so there is no mL step)
     const calcOk = r.calc != null && Math.abs(r.calc - a.volume) < 0.0005;
     let calcMsg = '';
     if (!calcOk) {
@@ -204,7 +204,7 @@
         calcMsg = 'Your answer is off by a power of ten: check the decimal point and any mg ↔ mcg ↔ g conversion.';
       }
     }
-    parts.push({ key: 'calc', label: 'Volume to administer', ok: calcOk, msg: calcMsg, yours: r.calc == null ? '—' : fmt(r.calc) + ' mL', correct: fmt(a.volume) + ' mL' });
+    if (!isIns) parts.push({ key: 'calc', label: 'Volume to administer', ok: calcOk, msg: calcMsg, yours: r.calc == null ? '—' : fmt(r.calc) + ' mL', correct: fmt(a.volume) + ' mL' });
 
     // 2. syringe
     const synOk = !!syr && a.accepted.includes(syr.id);
@@ -221,7 +221,8 @@
     const bestLabel = a.accepted.map((id) => S()[id].label + (S()[id].sub ? ' ' + S()[id].sub : '')).join(' or ');
     parts.push({ key: 'syringe', label: 'Syringe', ok: synOk, msg: synMsg, yours: syr ? syr.label + ' ' + syr.sub : '—', correct: bestLabel });
 
-    // 3. needle
+    // 3. needle (only applies to a Luer-Lock syringe for IM / subcutaneous; fixed-needle syringes and IV push have no needle step)
+    const needleApplies = !isIns && !!syr && !syr.attached && q.order.route !== 'IV';
     let needleOk, needleMsg = '', needleYours, needleCorrect;
     const route = q.order.route;
     if (isIns) {
@@ -243,7 +244,7 @@
         }
       }
     }
-    parts.push({ key: 'needle', label: 'Needle', ok: !!needleOk, msg: needleMsg, yours: needleYours, correct: needleCorrect });
+    if (needleApplies) parts.push({ key: 'needle', label: 'Needle', ok: !!needleOk, msg: needleMsg, yours: needleYours, correct: needleCorrect });
 
     // 4. plunger
     let drawOk = false, drawMsg = '', drawn = null, yours = '—';
@@ -291,6 +292,7 @@
       const cmp = doseU > st.amt ? 'more than' : doseU < st.amt ? 'less than' : 'the same as';
       return 'Each ' + noun + ' contains ' + fmt(st.amt) + ' ' + st.unit + '. The order (' + doseText(q) + ') is ' + cmp + ' one ' + noun + ', so you should expect ' + (cmp === 'less than' ? 'less than one' : cmp === 'more than' ? 'more than one' : 'exactly one') + ' ' + noun + '.';
     }
+    if (q.category === 'insulin') return 'U-100 insulin is 100 units in every 1 mL, and an insulin syringe is marked in units, so you draw up exactly the ordered ' + doseText(q) + ' with no mL calculation.';
     const c = q.product.conc, doseU = q.order.dose.v * kOf(q.order.dose.u, c.unit);
     const per = fmt(c.amt) + ' ' + c.unit + ' in ' + fmt(c.vol) + ' mL';
     const cmp = doseU > c.amt ? 'more than' : doseU < c.amt ? 'less than' : 'the same as';

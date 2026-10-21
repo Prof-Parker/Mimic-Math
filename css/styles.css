@@ -55,7 +55,15 @@ h2 { font-size: 1.2rem; } h3 { font-size: 1.02rem; margin-top: 1.1rem; }
 .choices { display: grid; grid-template-columns: repeat(auto-fill, minmax(116px, 1fr)); gap: 8px; }
 .choices.stack { grid-template-columns: 1fr; }
 .choice-group { margin-bottom: 10px; } .group-title { font-size: .82rem; font-weight: 600; color: var(--muted); margin-bottom: 4px; }
-.syr-icon { width: 100%; max-width: 110px; height: 26px; }
+.show-labels { display: inline-flex; align-items: center; gap: 6px; font-size: .9rem; margin: 2px 0 8px; cursor: pointer; }
+.syr-picker { display: grid; grid-template-columns: 1fr; gap: 10px; max-width: 680px; }
+.syr-card > span { align-items: stretch; padding: 6px 10px; background: linear-gradient(#fff, #f2f8fa); }
+@media (prefers-color-scheme: dark) { .syr-card > span { background: #1d2c31; } .syr-card input:checked + span { background: var(--brand-soft); } }
+.syr-card input:checked + span { background: var(--brand-soft); }
+.syr-picture { display: block; width: 100%; height: auto; }
+.syr-name { display: none; text-align: center; font-size: .9rem; }
+.syr-picker.labels .syr-name { display: block; }
+.syr-icon { width: 100%; max-width: 130px; height: 36px; }
 .start-form fieldset { border: 0; padding: 0; margin: 0 0 14px; } .start-form legend { font-weight: 600; margin-bottom: 6px; }
 .start-form .choice.wide { margin-bottom: 8px; }
 
@@ -66,12 +74,27 @@ h2 { font-size: 1.2rem; } h3 { font-size: 1.02rem; margin-top: 1.1rem; }
 
 /* vial */
 .vial-wrap, .bottle-wrap { display: flex; flex-wrap: wrap; gap: 16px; align-items: center; justify-content: center; padding: 8px 0; }
-.vial { width: 230px; display: flex; flex-direction: column; align-items: center; }
-.vial-cap { width: 96px; height: 18px; border-radius: 6px 6px 2px 2px; border: 1px solid rgba(0,0,0,.3); }
-.vial-neck { width: 70px; height: 12px; background: #dfe8ec; border: 1px solid #aab8bf; border-top: 0; }
-.vial-body { width: 100%; border: 2px solid #aab8bf; border-radius: 18px 18px 12px 12px; background: linear-gradient(90deg, #e6f1f5, #f9fcfd 40%, #dbe9ee); padding: 14px 10px; }
-.vial.ampule { width: 190px; } .vial.ampule .vial-cap { width: 26px; height: 22px; border-radius: 50% 50% 2px 2px; }
-.vial.ampule .vial-neck { width: 30px; height: 34px; background: #e9f1f4; } .vial.ampule .vial-body { border-radius: 30px 30px 12px 12px; }
+.vial { width: 230px; display: flex; flex-direction: column; align-items: center; filter: drop-shadow(0 6px 8px rgba(0,0,0,.18)); }
+/* flip-off plastic cap over an aluminium crimp seal */
+.vial-flip { width: 92px; height: 15px; border-radius: 9px 9px 3px 3px; position: relative; z-index: 2; box-shadow: inset 0 3px 3px rgba(255,255,255,.45), inset 0 -3px 3px rgba(0,0,0,.18); }
+.vial-seal { width: 98px; height: 20px; margin-top: -1px; border-radius: 2px 2px 6px 6px; position: relative; z-index: 1;
+  background: linear-gradient(90deg, #8f979c, #e9edef 22%, #fafbfb 40%, #c3cacd 70%, #8a9297); border: 1px solid #8a9297; }
+.vial-neck { width: 62px; height: 16px; margin-top: -2px; border: 1px solid #aebdc4; border-top: 0; background: linear-gradient(90deg, rgba(150,175,185,.55), rgba(255,255,255,.9) 30%, rgba(180,200,208,.6)); }
+.vial-body { width: 100%; margin-top: -2px; border: 1px solid #aebdc4; border-radius: 34px 34px 10px 10px / 30px 30px 10px 10px; padding: 34px 0 40px;
+  background: linear-gradient(90deg, rgba(140,165,176,.6), rgba(255,255,255,.95) 14%, rgba(240,246,248,.85) 55%, rgba(215,228,233,.9) 85%, rgba(140,165,176,.65)); }
+.vial.ampule { width: 190px; } .vial.ampule .vial-flip { width: 26px; height: 22px; border-radius: 50% 50% 2px 2px; } .vial.ampule .vial-seal { display: none; }
+.vial.ampule .vial-neck { width: 30px; height: 34px; } .vial.ampule .vial-body { border-radius: 30px 30px 12px 12px; padding: 14px 0; }
+/* wrap-around label: coloured name band, black strength band */
+.vial .vial-label { border-left: 0; border-right: 0; border-radius: 0; padding: 6px 10px 6px; box-shadow: 0 0 0 1px rgba(0,0,0,.06); }
+.vl-top { display: flex; justify-content: space-between; align-items: center; font-size: .68rem; font-weight: 700; margin-bottom: 3px; text-align: left; }
+.vial-label .sched { position: static; }
+.vl-band { font-weight: 700; font-size: .92rem; line-height: 1.15; padding: 5px 6px; text-align: left; }
+.vl-strength { background: #141414; color: #fff; font-weight: 800; font-size: 1.15rem; padding: 3px 6px; margin: 4px 0 2px; }
+.vial-label .vl-sub { font-weight: 600; }
+.vl-route { font-weight: 700; margin-top: 4px; text-align: left; }
+.vial-label .vl-small { text-align: left; }
+.vl-foot { display: flex; justify-content: space-between; align-items: flex-end; gap: 6px; margin-top: 6px; text-align: left; }
+.vl-foot .rx { font-size: .75rem; font-weight: 700; } .vl-foot .vl-tiny { margin: 0; text-align: right; max-width: 110px; }
 .vial-label, .bottle-label { background: #fff; color: #14272d; border: 1px solid #b9c7cc; border-radius: 6px; padding: 8px; text-align: center; position: relative; }
 .vl-drug { font-weight: 700; font-size: .85rem; line-height: 1.2; }
 .vl-conc { font-weight: 800; font-size: 1.45rem; margin: 4px 0 0; color: #0b4f58; }
@@ -96,11 +119,12 @@ h2 { font-size: 1.2rem; } h3 { font-size: 1.02rem; margin-top: 1.1rem; }
 @media (prefers-color-scheme: dark) { .syr-host { background: #1d2c31; } }
 .syr-host .placeholder { padding: 38px 12px; text-align: center; color: var(--muted); cursor: default; }
 .syringe { display: block; width: 100%; height: auto; }
-.syr-barrel { fill: var(--glass); stroke: #3f5560; stroke-width: 2; }
+.syr-barrel { stroke: #3f5560; stroke-width: 1.8; stroke-linejoin: round; }
 .syr-fluid { fill: var(--fluid); }
 .syr-tick { stroke: #26373d; stroke-width: 1.2; } .syr-tick.major { stroke-width: 1.8; }
 .syr-num { font: 600 17px system-ui, sans-serif; fill: var(--ink); } .syr-unit { font: 700 13px system-ui, sans-serif; fill: var(--muted); letter-spacing: .06em; }
-.syr-stopper { fill: #1c1f22; } .syr-rod { fill: #c9d3d8; stroke: #7b8a91; stroke-width: 1.2; }
+.syr-rod-wing { fill: rgba(190,205,212,.35); stroke: #8a99a0; stroke-width: 1; }
+.syr-rod { fill: #dbe4e8; stroke: #7b8a91; stroke-width: 1.2; }
 .syr-flange, .syr-pad { fill: #dfe7ea; stroke: #6b7a80; stroke-width: 1.5; }
 .syr-collar { fill: #eef2f4; stroke: #6b7a80; stroke-width: 1.5; } .syr-thread { stroke: #9aa8ae; stroke-width: 1.2; }
 .syr-needle { fill: #8c98a0; stroke: #4b5563; stroke-width: .8; }

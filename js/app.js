@@ -54,7 +54,7 @@
   function showQuestion() {
     const q = session.deck[session.index];
     const oral = q.category === 'po' || q.category === 'poTrap';
-    cur = { q, oral, calc: '', syringe: null, needle: null, tick: 0, decision: null, submitted: false };
+    cur = { q, oral, insulin: q.category === 'insulin', calc: '', syringe: null, needle: null, tick: 0, decision: null, submitted: false };
 
     const score = session.results.filter((r) => r.correct).length;
     app.innerHTML =
@@ -67,13 +67,17 @@
       '<button id="submit" class="btn primary big" type="button">Check my answer</button></section>' +
       '<div id="feedback"></div></div></div>';
 
-    $('#calc').addEventListener('input', (e) => { cur.calc = e.target.value; });
+    const calcEl = $('#calc');
+    if (calcEl) calcEl.addEventListener('input', (e) => { cur.calc = e.target.value; });
     if (oral) {
       $$('input[name=decision]').forEach((r) => r.addEventListener('change', () => { cur.decision = r.value; }));
     } else {
       $$('input[name=syringe]').forEach((r) => r.addEventListener('change', () => onSyringe(r.value)));
-      $$('input[name=needle]').forEach((r) => r.addEventListener('change', () => { cur.needle = r.value; drawSyringe(); }));
+      const sl = $('#showSyrLabels'), pk = $('#syrPicker');
+      if (sl && pk) sl.addEventListener('change', () => pk.classList.toggle('labels', sl.checked));
+      $$('input[name=needle]').forEach((r) => r.addEventListener('change', () => { cur.needle = r.value; updateSteps(); drawSyringe(); }));
       setupSyringeHost();
+      updateSteps();
       drawSyringe();
     }
     $('#submit').addEventListener('click', onSubmit);
@@ -85,28 +89,30 @@
 
   function injWorkHTML(q) {
     const insulin = q.category === 'insulin';
-    const groups = MM.SYRINGE_GROUPS.map((gr) => {
-      const items = MM.SYRINGE_ORDER.filter((id) => MM.SYRINGES[id].group === gr.id);
-      return '<div class="choice-group"><div class="group-title">' + gr.title + '</div><div class="choices">' +
-        items.map((id) => { const s = MM.SYRINGES[id];
-          return '<label class="choice syr"><input type="radio" name="syringe" value="' + id + '"><span>' + MM.syringeIcon(s) + '<b>' + esc(s.label) + '</b><small>' + esc(s.sub) + '</small></span></label>'; }).join('') +
-        '</div></div>';
-    }).join('');
-    const needles = MM.NEEDLE_ORDER.map((id) => { const n = MM.NEEDLES[id];
+    /* Pictures only: no group headings, names hidden until the student asks for them. Fixed order: smallest to largest. */
+    const order = MM.SYRINGE_ORDER;
+    const groups = '<label class="show-labels"><input type="checkbox" id="showSyrLabels"> Show syringe labels</label>' +
+      '<div class="syr-picker" id="syrPicker" role="radiogroup" aria-label="Syringe choices">' +
+      order.map((id) => { const s = MM.SYRINGES[id];
+        return '<label class="choice syr-card"><input type="radio" name="syringe" value="' + id + '" aria-label="' + esc(s.label + ' ' + s.sub) + '"><span>' + MM.syringeSVG(id, { picture: true }) +
+          '<span class="syr-name"><b>' + esc(s.label) + '</b> <small>' + esc(s.sub) + '</small></span></span></label>'; }).join('') + '</div>';
+    const needles = MM.NEEDLE_ORDER.filter((id) => id !== 'none').map((id) => { const n = MM.NEEDLES[id];
       return '<label class="choice"><input type="radio" name="needle" value="' + id + '"><span><b>' + esc(n.label) + '</b>' + (n.sub ? '<small>' + esc(n.sub) + '</small>' : '') + '</span></label>'; }).join('');
-    return stepHead(1, 'Calculate the volume to administer') +
+    /* Insulin is ordered and drawn up in units, so it has no volume-calculation step. */
+    const n = insulin ? 0 : 1;
+    return (insulin ? '' : stepHead(1, 'Calculate the volume to administer') +
       '<div class="calc-row"><label for="calc">Volume</label><input id="calc" type="text" inputmode="decimal" autocomplete="off" placeholder="0.00" aria-describedby="calcHint"><span class="unit-tag">mL</span></div>' +
-      '<p id="calcHint" class="muted small">' + (insulin ? 'Answer in mL of insulin (U-100 = 100 units in 1 mL). The insulin syringe will be marked in units.' : 'The order is written in ' + esc(q.order.dose.u) + '. Your answer is a <strong>volume in mL</strong>.') + '</p>' +
-      stepHead(2, 'Select a syringe') + groups +
-      stepHead(3, 'Select a needle') + '<div id="needleChoices" class="choices">' + needles + '</div><p id="needleNote" class="muted small" hidden></p>' +
-      stepHead(4, 'Draw up the dose') +
-      '<p class="muted small">Drag the plunger back (or use the buttons / arrow keys). Read the volume at the edge of the black stopper nearest the needle.</p>' +
+      '<p id="calcHint" class="muted small">The order is written in ' + esc(q.order.dose.u) + '. Your answer is a <strong>volume in mL</strong>.</p>') +
+      stepHead(n + 1, 'Select a syringe') + groups +
+      '<div id="needleStep" hidden>' + stepHead(0, 'Select a needle') + '<div id="needleChoices" class="choices">' + needles + '</div></div>' +
+      '<div id="drawStep" hidden>' + stepHead(0, 'Draw up the dose') +
+      '<p class="muted small">Drag the plunger back (or use the buttons / arrow keys). Read the ' + (insulin ? 'units' : 'volume') + ' at the edge of the black stopper nearest the needle.</p>' +
       '<div id="syrHost" class="syr-host" tabindex="0" role="slider" aria-label="Syringe plunger"></div>' +
       '<div class="readout">Plunger at <strong id="readout">0</strong></div>' +
       '<div class="nudge" role="group" aria-label="Fine tune plunger">' +
       '<button type="button" class="btn small" data-n="-10" aria-label="Push in 10 marks">« 10</button><button type="button" class="btn small" data-n="-1" aria-label="Push in 1 mark">‹ 1</button>' +
       '<button type="button" class="btn small" data-n="1" aria-label="Pull back 1 mark">1 ›</button><button type="button" class="btn small" data-n="10" aria-label="Pull back 10 marks">10 »</button>' +
-      '<button type="button" class="btn small ghost" data-n="reset">Reset</button></div>';
+      '<button type="button" class="btn small ghost" data-n="reset">Reset</button></div></div>';
   }
 
   function oralWorkHTML(q) {
@@ -125,12 +131,28 @@
     cur.syringe = id;
     cur.tick = 0;
     const s = MM.SYRINGES[id];
-    const note = $('#needleNote');
-    $$('input[name=needle]').forEach((r) => { r.disabled = s.attached; if (s.attached) r.checked = false; });
-    if (s.attached) { cur.needle = null; note.hidden = false; note.textContent = 'This syringe comes with a fixed needle. No separate needle is selected.'; }
-    else { note.hidden = true; }
+    if (!needsNeedle(s)) { cur.needle = null; $$('input[name=needle]').forEach((r) => { r.checked = false; }); }
+    updateSteps();
     drawSyringe();
   }
+
+  /* A separate needle is only chosen for a Luer-Lock syringe used for an IM or subcutaneous injection.
+   * Insulin / TB syringes have the needle attached; an IV push uses a needleless connector. */
+  function needsNeedle(s) { return !!s && !s.attached && cur.q.order.route !== 'IV'; }
+
+  /* Steps cascade: needle appears after a Luer-Lock choice (IM/SQ), the syringe appears once everything before it is done. */
+  function updateSteps() {
+    const s = cur.syringe && MM.SYRINGES[cur.syringe];
+    const ns = $('#needleStep'), ds = $('#drawStep');
+    if (!ns || !ds) return;
+    ns.hidden = !needsNeedle(s);
+    ds.hidden = !s || (needsNeedle(s) && !cur.needle);
+    let n = 0;
+    $$('.work .step-h').forEach((h) => { if (!h.closest('[hidden]')) h.querySelector('.num').textContent = ++n; });
+  }
+
+  /* IV push on a Luer-Lock syringe shows the needleless connector */
+  function currentNeedle() { return cur.needle || (cur.q.order.route === 'IV' && cur.syringe && !MM.SYRINGES[cur.syringe].attached ? 'none' : null); }
 
   function drawSyringe() {
     const host = $('#syrHost');
@@ -142,7 +164,7 @@
       return;
     }
     const s = MM.SYRINGES[cur.syringe];
-    host.innerHTML = MM.syringeSVG(cur.syringe, { needle: cur.needle, tick: cur.tick });
+    host.innerHTML = MM.syringeSVG(cur.syringe, { needle: currentNeedle(), tick: cur.tick });
     host.setAttribute('aria-valuemin', 0); host.setAttribute('aria-valuemax', s.ticks); host.setAttribute('aria-valuenow', cur.tick);
     host.removeAttribute('aria-disabled');
     const val = MM.round(cur.tick * s.minor * s.scale, 3);
@@ -193,21 +215,21 @@
   function onSubmit() {
     if (cur.submitted) return;
     const q = cur.q, err = $('#formError'), missing = [];
-    const calc = MM.parseNumber(cur.calc);
-    if (calc == null) missing.push('enter your calculated ' + (cur.oral ? 'number of ' + q.product.kind + 's' : 'volume') + ' as a number');
+    const calc = cur.insulin ? null : MM.parseNumber(cur.calc);
+    if (!cur.insulin && calc == null) missing.push('enter your calculated ' + (cur.oral ? 'number of ' + q.product.kind + 's' : 'volume') + ' as a number');
     if (cur.oral) {
       if (!cur.decision) missing.push('say whether the dose can be given');
     } else {
       const s = cur.syringe && MM.SYRINGES[cur.syringe];
       if (!s) missing.push('select a syringe');
       else {
-        if (!s.attached && !cur.needle) missing.push('select a needle');
+        if (needsNeedle(s) && !cur.needle) missing.push('select a needle');
         if (cur.tick === 0) missing.push('draw the plunger back to the dose');
       }
     }
     if (missing.length) {
       err.hidden = false; err.textContent = 'Please ' + missing.join(', ') + '.';
-      if (calc == null) $('#calc').focus();
+      if (!cur.insulin && calc == null) $('#calc').focus();
       return;
     }
     err.hidden = true;
@@ -238,13 +260,15 @@
     } else {
       const s = MM.SYRINGES[a.best];
       const reads = MM.fmt(MM.round(a.volume * s.scale, 4)) + ' ' + s.unit;
-      html += '<p class="answer-line">Answer: draw up <strong>' + MM.fmt(a.volume) + ' mL</strong>' + (s.scale === 100 ? ' = <strong>' + reads + '</strong> on a U-100 insulin syringe' : '') + '.</p>';
+      html += q.category === 'insulin'
+        ? '<p class="answer-line">Answer: draw up <strong>' + reads + '</strong> of insulin on a U-100 insulin syringe.</p>'
+        : '<p class="answer-line">Answer: draw up <strong>' + MM.fmt(a.volume) + ' mL</strong>' + (s.scale === 100 ? ' = <strong>' + reads + '</strong> on a U-100 insulin syringe' : '') + '.</p>';
     }
     html += '<p class="why-box"><strong>Sense check:</strong> ' + esc(MM.senseCheck(q)) + '</p>';
 
     if (!oral) {
       const mine = MM.SYRINGES[cur.syringe];
-      const needleId = cur.needle;
+      const needleId = currentNeedle();
       const bestNeedle = a.needles.length ? a.needles[0] : null;
       html += '<div class="compare"><figure><figcaption>Your syringe</figcaption>' + MM.syringeSVG(cur.syringe, { needle: needleId, tick: cur.tick }) + '</figure>' +
         '<figure><figcaption>Correct setup: ' + esc(MM.SYRINGES[a.best].label + ' ' + MM.SYRINGES[a.best].sub) + (bestNeedle ? ', ' + esc(MM.NEEDLES[bestNeedle].label) : '') + '</figcaption>' +
