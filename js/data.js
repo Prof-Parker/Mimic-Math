@@ -16,7 +16,7 @@
     ins100: { id: 'ins100', label: '100 unit', sub: 'Insulin (1 mL)',   group: 'insulin', ticks: 50,  minor: 0.02, labelStep: 5,  midStep: 5, scale: 100, unit: 'units', attached: true,  h: 36, needle: { len: 0.5,  gauge: 30 } },
     tb1:    { id: 'tb1',    label: '1 mL',  sub: 'TB syringe',       group: 'other',   ticks: 100, minor: 0.01, labelStep: 10, midStep: 5, scale: 1,   unit: 'mL',    attached: true,  h: 38, needle: { len: 0.625, gauge: 25 } }
   };
-  MM.SYRINGE_ORDER = ['luer1', 'luer3', 'luer5', 'luer10', 'ins30', 'ins50', 'ins100', 'tb1'];
+  MM.SYRINGE_ORDER = ['ins30', 'ins50', 'ins100', 'tb1', 'luer1', 'luer3', 'luer5', 'luer10'];
   MM.SYRINGE_GROUPS = [
     { id: 'luer', title: 'Luer-Lock syringes' },
     { id: 'insulin', title: 'Insulin syringes (U-100)' },
@@ -26,13 +26,14 @@
   /* Needles. `len` in inches. Hub colours follow the ISO gauge colour code. */
   MM.NEEDLES = {
     '18g15': { id: '18g15', label: '18 G × 1½"', gauge: 18, len: 1.5,   hub: '#e86aa6' },
+    'blunt18': { id: 'blunt18', label: '18 G × 1½" blunt fill', sub: 'Draw-up only', gauge: 18, len: 1.5, hub: '#e86aa6', blunt: true },
     '21g1':  { id: '21g1',  label: '21 G × 1"',  gauge: 21, len: 1,     hub: '#4caf50' },
     '21g15': { id: '21g15', label: '21 G × 1½"', gauge: 21, len: 1.5,   hub: '#4caf50' },
     '25g1':  { id: '25g1',  label: '25 G × 1"',  gauge: 25, len: 1,     hub: '#f28c28' },
     '25g58': { id: '25g58', label: '25 G × ⅝"',  gauge: 25, len: 0.625, hub: '#f28c28' },
     none:    { id: 'none',  label: 'No needle',  sub: 'Needleless IV connector', gauge: 0, len: 0, hub: '#cfd8dc' }
   };
-  MM.NEEDLE_ORDER = ['18g15', '21g1', '21g15', '25g1', '25g58', 'none'];
+  MM.NEEDLE_ORDER = ['18g15', 'blunt18', '21g1', '21g15', '25g1', '25g58', 'none'];
 
   /* ---- Injectable templates ----
    * concs: vial strengths (amt `unit` in `vol` mL; `total` = mL in the container).
@@ -132,6 +133,29 @@
       freqs: ['q6h', 'q12h'], indic: 'tachycardia',
       concs: [{ amt: 5, unit: 'mg', vol: 5, total: 5, pack: AMP }],
       doses: [[2.5, 'mg'], [5, 'mg'], [3, 'mg'], [4, 'mg']] }
+  ];
+
+  /* ---- Reconstitution templates (powder vials) ----
+   * vials: amt/unit per vial, the diluent and volume added, and the resulting concentration (conc, in unit/mL).
+   * The label directions give the resulting concentration; the student calculates the volume to draw up. */
+  const SWFI = 'sterile water for injection', LIDO = '1% lidocaine HCl', NS = '0.9% sodium chloride';
+  MM.RECONS = [
+    { id: 'ceftriaxone-iv', drug: 'Ceftriaxone', route: 'IV', routeLabel: 'IV push', cap: '#3b8fd9',
+      freqs: ['q12h', 'q24h'], indic: 'bacterial infection',
+      vials: [{ amt: 250, unit: 'mg', diluent: SWFI, dil: 2.4, conc: 100 }, { amt: 500, unit: 'mg', diluent: SWFI, dil: 4.8, conc: 100 }, { amt: 1000, unit: 'mg', diluent: SWFI, dil: 9.6, conc: 100 }],
+      doses: [[100, 'mg'], [200, 'mg'], [250, 'mg'], [300, 'mg'], [400, 'mg'], [500, 'mg'], [750, 'mg'], [1000, 'mg']] },
+    { id: 'ceftriaxone-im', drug: 'Ceftriaxone', route: 'IM', routeLabel: 'IM', cap: '#3b8fd9',
+      freqs: ['q24h'], indic: 'bacterial infection',
+      vials: [{ amt: 500, unit: 'mg', diluent: LIDO, dil: 1.8, conc: 250 }, { amt: 1000, unit: 'mg', diluent: LIDO, dil: 3.6, conc: 250 }],
+      doses: [[125, 'mg'], [250, 'mg'], [500, 'mg']] },
+    { id: 'ampicillin-im', drug: 'Ampicillin sodium', route: 'IM', routeLabel: 'IM', cap: '#d35400',
+      freqs: ['q6h'], indic: 'bacterial infection',
+      vials: [{ amt: 500, unit: 'mg', diluent: SWFI, dil: 1.8, conc: 250 }],
+      doses: [[250, 'mg'], [375, 'mg'], [500, 'mg']] },
+    { id: 'pantoprazole-iv', drug: 'Pantoprazole sodium', route: 'IV', routeLabel: 'IV push', cap: '#8e6bbf',
+      freqs: ['daily', 'q12h'], indic: 'GI bleeding prophylaxis',
+      vials: [{ amt: 40, unit: 'mg', diluent: NS, dil: 10, conc: 4 }],
+      doses: [[20, 'mg'], [40, 'mg']] }
   ];
 
   /* ---- Insulin templates (U-100, 10 mL multiple-dose vial). Doses are in units. ---- */
