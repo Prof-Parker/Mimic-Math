@@ -23,11 +23,12 @@
   /* ---------- Vial / ampule ---------- */
   MM.vialHTML = function (q) {
     const p = q.product, c = p.conc;
-    const concMain = MM.fmt(c.amt) + ' ' + c.unit + (c.vol === 1 ? '/mL' : '/' + MM.fmt(c.vol) + ' mL');
-    const concSub = c.vol !== 1 ? '(' + MM.fmt(c.amt / c.vol) + ' ' + c.unit + '/mL)' : '';
+    const rc = p.recon;
+    const concMain = rc ? MM.fmt(rc.vialAmt) + ' ' + rc.unit + ' per vial' : MM.fmt(c.amt) + ' ' + c.unit + (c.vol === 1 ? '/mL' : '/' + MM.fmt(c.vol) + ' mL');
+    const concSub = !rc && c.vol !== 1 ? '(' + MM.fmt(c.amt / c.vol) + ' ' + c.unit + '/mL)' : '';
     const isAmp = /ampule/.test(p.pack);
     const route = p.insulin ? 'For subcutaneous use' : 'For ' + (p.route === 'SQ' ? 'subcutaneous' : p.route) + ' use';
-    const name = p.insulin ? esc(q.order.drug) + ' injection' : esc(q.order.drug) + ' injection, USP';
+    const name = p.insulin ? esc(q.order.drug) + ' injection' : esc(q.order.drug) + (rc ? ' for injection, USP' : ' injection, USP');
     /* white text on dark band colours, dark text on light ones */
     const hex = String(p.cap || '#2e7d32').replace('#', '');
     const lum = (parseInt(hex.slice(0, 2), 16) * 299 + parseInt(hex.slice(2, 4), 16) * 587 + parseInt(hex.slice(4, 6), 16) * 114) / 1000;
@@ -42,8 +43,9 @@
       '<div class="vl-strength">' + esc(concMain) + '</div>' +
       (concSub ? '<div class="vl-sub">' + esc(concSub) + '</div>' : '') +
       (p.insulin ? '<div class="vl-u100">U-100</div>' : '') +
+      (rc ? '<div class="vl-recon"><strong>To reconstitute:</strong> add ' + esc(MM.fmt(rc.dil)) + ' mL ' + esc(rc.diluent) + '. Each 1 mL then contains ' + esc(MM.fmt(rc.conc)) + ' ' + esc(rc.unit) + '.</div>' : '') +
       '<div class="vl-small vl-route">' + route + '</div>' +
-      '<div class="vl-small">' + esc(MM.fmt(p.total)) + ' mL ' + esc(p.pack) + '</div>' +
+      (rc ? '' : '<div class="vl-small">' + esc(MM.fmt(p.total)) + ' mL ' + esc(p.pack) + '</div>') +
       '<div class="vl-foot"><span class="rx">℞ only</span><span class="vl-tiny">Practice label · not for patient use</span></div>' +
       '</div></div></div></div>';
   };
@@ -195,7 +197,7 @@
     if (needle && needle.len) {
       const len = needle.len * PX_IN, gw = needle.gauge >= 30 ? 1.6 : needle.gauge >= 25 ? 2.6 : needle.gauge >= 21 ? 4 : 5.5;
       /* lancet-bevelled tip: the lower edge runs further than the upper edge */
-      const bev = Math.max(5, gw * 3);
+      const bev = needle.blunt ? 0 : Math.max(5, gw * 3);
       out += '<polygon points="' + tipX + ',' + f1(CY - gw / 2) + ' ' + f1(tipX - len + bev) + ',' + f1(CY - gw / 2) + ' ' + f1(tipX - len) + ',' + f1(CY + gw / 2) + ' ' + tipX + ',' + f1(CY + gw / 2) + '" fill="url(#' + uid + 'n)" class="syr-needle"/>';
     }
 

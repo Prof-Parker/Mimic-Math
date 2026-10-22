@@ -14,7 +14,7 @@ MM.bank.forEach((q) => {
   // the one numerator unit left uncancelled must be the result unit
   const left = [['s', da.start.u]].concat(da.factors.map((f, i) => ['n' + i, f.num.u])).filter(([k]) => !cancelled[k]).map(([, u]) => u);
   if (left.length !== 1 || left[0] !== da.result.u) fail(q, 'units do not cancel to ' + da.result.u + ': ' + left);
-  if (q.category === 'inj' || q.category === 'insulin') {
+  if (q.category === 'inj' || q.category === 'insulin' || q.category === 'recon') {
     const s = MM.SYRINGES[a.best];
     if (!MM.onGrid(a.volume, a.best)) fail(q, 'volume not on grid');
     if (a.volume > s.ticks * s.minor + 1e-9) fail(q, 'volume exceeds syringe');
@@ -34,9 +34,17 @@ MM.bank.forEach((q) => {
     if (!g.correct) fail(q, 'perfect oral answer graded wrong');
   }
 });
+MM.bank.forEach((q) => { const a = q.answer; if (a.volume === 5 && !a.accepted.includes('luer10')) fail(q, '5 mL should allow a 10 mL syringe'); if (a.volume === 3 && !a.accepted.includes('luer5')) fail(q, '3 mL should allow a 5 mL syringe'); });
+MM.bank.filter((q) => q.category === 'recon').forEach((q) => {
+  const p = q.answer.prep, rc = q.product.recon;
+  const g = MM.gradeRecon1(q, { calc: rc.dil, syringe: p.best, needle: p.needle, tick: Math.round(rc.dil / MM.SYRINGES[p.best].minor) });
+  if (!g.correct) fail(q, 'perfect part-1 answer graded wrong: ' + JSON.stringify(g.parts.filter((x) => !x.ok)));
+  const wrong = MM.gradeRecon1(q, { calc: rc.dil, syringe: p.best, needle: '21g1' });
+  if (wrong.correct) fail(q, 'sharp needle accepted for diluent withdrawal');
+});
 console.log('Bank size:', MM.bank.length, counts);
 const ids = new Set(MM.bank.map((q) => q.id));
 if (ids.size !== MM.bank.length) { bad++; console.log('FAIL duplicate ids'); }
-['mixed', 'syringe', 'insulin', 'po'].forEach((m) => { const d = MM.makeDeck(m, 20); if (d.length !== 20) { bad++; console.log('FAIL deck', m); } });
+['mixed', 'syringe', 'insulin', 'recon', 'po'].forEach((m) => { const d = MM.makeDeck(m, 20); if (d.length !== 20) { bad++; console.log('FAIL deck', m); } });
 console.log(bad ? bad + ' problem(s)' : 'All checks passed');
 process.exit(bad ? 1 : 0);

@@ -58,6 +58,9 @@
   function acceptedSyringes(route, v) {
     const best = bestLuer(v);
     if (route === 'SQ' && v <= 1) return ['luer1', 'tb1'];
+    /* a volume that fills a syringe exactly may also be drawn in the next size up */
+    if (v === 3) return ['luer3', 'luer5'];
+    if (v === 5) return ['luer5', 'luer10'];
     return [best];
   }
   const NEEDLE_RULES = { SQ: ['25g58'], IM: ['21g1', '21g15', '25g1'], IV: ['none'] };
@@ -102,6 +105,22 @@
     };
   }
 
+  /* ---- Build one reconstitution question: a powder vial plus the label dilution directions ---- */
+  function buildRecon(t, v, d, n) {
+    const c = { amt: v.conc, unit: v.unit, vol: 1, total: round(v.amt / v.conc), pack: 'single-dose vial' };
+    if (d[0] * kOf(d[1], v.unit) > v.amt + 1e-9) return null; /* cannot give more than the vial holds */
+    /* part 1 of the question: the diluent must be measurable on a Luer-Lock syringe */
+    const prepAccepted = acceptedSyringes('IM', v.dil);
+    if (!onGrid(v.dil, prepAccepted[0])) return null;
+    const q = buildInjectable(t, c, d, n);
+    if (!q) return null;
+    q.answer.prep = { dil: v.dil, accepted: prepAccepted, best: prepAccepted[0], needle: 'blunt18' };
+    q.id = t.id + '|' + v.amt + v.unit + '|' + d[0] + d[1];
+    q.category = 'recon';
+    q.product.recon = { vialAmt: v.amt, unit: v.unit, diluent: v.diluent, dil: v.dil, conc: v.conc };
+    return q;
+  }
+
   /* ---- Build one oral question ---- */
   function buildOral(t, st, d, n) {
     const doseInStrength = d[0] * kOf(d[1], st.unit);
@@ -142,6 +161,10 @@
       let n = 0;
       t.concs.forEach((c) => t.doses.forEach((d) => { const q = buildInjectable(t, c, d, n++); if (q) bank.push(q); }));
     });
+    MM.RECONS.forEach((t) => {
+      let n = 0;
+      t.vials.forEach((v) => t.doses.forEach((d) => { const q = buildRecon(t, v, d, n++); if (q) bank.push(q); }));
+    });
     MM.ORALS.forEach((t) => {
       let n = 0;
       t.strengths.forEach((st) => t.doses.forEach((d) => { const q = buildOral(t, st, d, n++); if (q) bank.push(q); }));
@@ -152,8 +175,9 @@
 
   /* ---- Decks ---- */
   const MODES = {
-    mixed:   { label: 'Mixed practice',            weights: { inj: 50, insulin: 20, po: 22, poTrap: 8 } },
-    syringe: { label: 'Syringe & needle (injectables + insulin)', weights: { inj: 70, insulin: 30 } },
+    mixed:   { label: 'Mixed practice',            weights: { inj: 42, insulin: 18, recon: 14, po: 20, poTrap: 6 } },
+    syringe: { label: 'Syringe & needle (injectables + insulin)', weights: { inj: 55, insulin: 25, recon: 20 } },
+    recon:   { label: 'Reconstitution (powder vials)', weights: { recon: 100 } },
     insulin: { label: 'Insulin only',               weights: { insulin: 100 } },
     po:      { label: 'Oral medications',          weights: { po: 70, poTrap: 30 } }
   };
@@ -238,7 +262,8 @@
         needleYours = nd ? nd.label : '—';
         needleOk = !!nd && a.needles.includes(nd.id);
         if (!needleOk && nd) {
-          if (route === 'SQ') needleMsg = nd.id === 'none' ? 'A subcutaneous injection needs a needle. Use a short 25 G × ⅝" needle to reach the fatty layer under the skin.' : 'Subcutaneous injections go into the fatty tissue just under the skin. Use a short needle (25 G × ⅝").';
+          if (nd.blunt) needleMsg = 'A blunt fill needle is only for drawing medication out of a vial or ampule. It cannot pierce skin, so it is never used to inject.';
+          else if (route === 'SQ') needleMsg = nd.id === 'none' ? 'A subcutaneous injection needs a needle. Use a short 25 G × ⅝" needle to reach the fatty layer under the skin.' : 'Subcutaneous injections go into the fatty tissue just under the skin. Use a short needle (25 G × ⅝").';
           else if (route === 'IM') needleMsg = nd.id === 'none' ? 'An IM injection needs a needle long enough to reach muscle (21 G × 1" or 1½", or 25 G × 1" for a small adult).' : nd.id === '18g15' ? '18 G × 1½" is a large-bore needle used to draw medication up, not to inject a patient. Use 21 G × 1"/1½" or 25 G × 1".' : nd.len < 1 ? 'A ⅝" needle is too short to reach muscle. Use a 1" or 1½" needle.' : 'Use 21 G × 1"/1½" (or 25 G × 1" for aqueous medications in a small adult).';
           else needleMsg = 'An IV push goes into the patient\'s IV line through a needleless connector. A needle is not used (needlestick risk).';
         }
@@ -265,6 +290,43 @@
     return parts;
   }
 
+  /* Part 1 of a reconstitution question: withdraw the diluent (volume, syringe, blunt fill needle). */
+  function gradeRecon1(q, r) {
+    const rc = q.product.recon, p = q.answer.prep, parts = [];
+    const syr = r.syringe ? S()[r.syringe] : null;
+    const volOk = r.calc != null && Math.abs(r.calc - rc.dil) < 0.0005;
+    parts.push({ key: 'dilVol', label: 'Diluent volume', ok: volOk,
+      msg: volOk || r.calc == null ? '' : 'Follow the reconstitution directions on the label: add ' + fmt(rc.dil) + ' mL of ' + rc.diluent + '. The ordered dose and the final concentration are used in part 2, not here.',
+      yours: r.calc == null ? '—' : fmt(r.calc) + ' mL', correct: fmt(rc.dil) + ' mL of ' + rc.diluent });
+
+    const synOk = !!syr && p.accepted.includes(syr.id);
+    let synMsg = '';
+    if (!synOk && syr) {
+      const cap = syr.ticks * syr.minor;
+      if (syr.attached) synMsg = 'Insulin and TB syringes have a small fixed needle and are marked for other purposes. To withdraw diluent use a Luer-Lock syringe so a blunt fill needle can be attached.';
+      else if (cap < rc.dil - 1e-9) synMsg = 'A ' + syr.label + ' syringe cannot hold ' + fmt(rc.dil) + ' mL.';
+      else synMsg = 'Use the smallest syringe that holds the volume (' + fmt(rc.dil) + ' mL → ' + S()[p.best].label + ') so the graduations are fine enough to measure it accurately.';
+    }
+    parts.push({ key: 'dilSyringe', label: 'Diluent syringe', ok: synOk, msg: synMsg, yours: syr ? syr.label + ' ' + syr.sub : '—',
+      correct: p.accepted.map((id) => S()[id].label + ' ' + S()[id].sub).join(' or ') });
+
+    if (syr && !syr.attached) {
+      const nd = r.needle ? MM.NEEDLES[r.needle] : null, ndOk = !!nd && nd.id === p.needle;
+      parts.push({ key: 'dilNeedle', label: 'Diluent needle', ok: ndOk,
+        msg: ndOk || !nd ? '' : 'Use a blunt fill needle to withdraw from a vial or ampule: it cannot stick you, and you switch to a sterile injection needle (or a needleless connector for IV) before giving the dose.',
+        yours: nd ? nd.label : '—', correct: MM.NEEDLES[p.needle].label });
+    }
+    let drawOk = false, drawMsg = '', drawYours = '—';
+    if (syr && r.tick != null) {
+      const drawn = round(r.tick * syr.minor);
+      drawOk = Math.abs(drawn - rc.dil) < 1e-6;
+      drawYours = fmt(round(drawn * syr.scale, 4)) + ' ' + syr.unit;
+      if (!drawOk) drawMsg = 'You drew back to ' + fmt(drawn) + ' mL; the diluent volume is ' + fmt(rc.dil) + ' mL. Read the plunger at the edge of the black stopper nearest the needle.';
+    }
+    parts.push({ key: 'dilDraw', label: 'Diluent drawn up', ok: drawOk, msg: drawMsg, yours: drawYours, correct: fmt(rc.dil) + ' mL' });
+    return { parts, correct: parts.every((x) => x.ok) };
+  }
+
   function gradeOral(q, r) {
     const a = q.answer, parts = [];
     const noun = q.product.kind === 'capsule' ? 'capsule' : 'tablet';
@@ -280,7 +342,7 @@
   }
 
   function grade(q, r) {
-    const parts = q.category === 'insulin' || q.category === 'inj' ? gradeInjectable(q, r) : gradeOral(q, r);
+    const parts = q.category === 'insulin' || q.category === 'inj' || q.category === 'recon' ? gradeInjectable(q, r) : gradeOral(q, r);
     return { parts, correct: parts.every((p) => p.ok) };
   }
 
@@ -294,13 +356,13 @@
     }
     if (q.category === 'insulin') return 'U-100 insulin is 100 units in every 1 mL, and an insulin syringe is marked in units, so you draw up exactly the ordered ' + doseText(q) + ' with no mL calculation.';
     const c = q.product.conc, doseU = q.order.dose.v * kOf(q.order.dose.u, c.unit);
-    const per = fmt(c.amt) + ' ' + c.unit + ' in ' + fmt(c.vol) + ' mL';
+    const per = q.category === 'recon' ? 'After reconstitution, the solution contains ' + fmt(c.amt) + ' ' + c.unit + ' in ' + fmt(c.vol) + ' mL' : 'The vial has ' + fmt(c.amt) + ' ' + c.unit + ' in ' + fmt(c.vol) + ' mL';
     const cmp = doseU > c.amt ? 'more than' : doseU < c.amt ? 'less than' : 'the same as';
     const exp = cmp === 'less than' ? 'less than ' + fmt(c.vol) + ' mL' : cmp === 'more than' ? 'more than ' + fmt(c.vol) + ' mL' : 'exactly ' + fmt(c.vol) + ' mL';
-    return 'The vial has ' + per + '. The ordered dose (' + doseText(q) + ') is ' + cmp + ' that, so you should draw up ' + exp + '. ' + (q.category === 'insulin' || c.amt / c.vol === 1 ? '' : 'The dose in ' + q.order.dose.u + ' and the volume in mL are never the same thing unless the concentration happens to be 1 ' + c.unit + '/mL.');
+    return per + '. The ordered dose (' + doseText(q) + ') is ' + cmp + ' that, so you should draw up ' + exp + '. ' + (q.category === 'insulin' || c.amt / c.vol === 1 ? '' : 'The dose in ' + q.order.dose.u + ' and the volume in mL are never the same thing unless the concentration happens to be 1 ' + c.unit + '/mL.');
   }
 
-  Object.assign(MM, { fmt, fraction, parseNumber, round, convFactor, cancelUnits, daValue, unitNoun, grade, senseCheck, makeDeck, kOf, onGrid, doseText, NEEDLE_RULES, acceptedSyringes });
+  Object.assign(MM, { fmt, fraction, parseNumber, round, convFactor, cancelUnits, daValue, unitNoun, grade, gradeRecon1, senseCheck, makeDeck, kOf, onGrid, doseText, NEEDLE_RULES, acceptedSyringes });
 })(typeof globalThis !== 'undefined' ? globalThis : this);
 
 if (typeof module !== 'undefined' && module.exports) module.exports = globalThis.MM;
